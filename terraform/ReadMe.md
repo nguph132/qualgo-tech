@@ -1,0 +1,5 @@
+- use `default` aws profile
+- change default input in `main.tf`
+- run `terraform init`
+- run `terraform apply`
+- run `bash deploy-infra.sh` to install common components like `ingress-nginx`, `metrics-server`, `cluster-autoscaler`, `trivy-operator` in [deploy](../deploy/)

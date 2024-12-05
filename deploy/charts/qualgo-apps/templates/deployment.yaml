@@ -1,0 +1,110 @@
+{{ range $name, $params := .Values.apps -}}
+{{- if $params.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+  {{- if $params.podAnnotations }}
+  annotations:
+    {{- with $params.podAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 50%
+      maxUnavailable: 25%
+  replicas: {{ $params.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ $name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $name }}
+    spec:
+      {{- if $params.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- range $params.topologySpreadConstraints }}
+        - {{- toYaml . | nindent 10 }}
+          labelSelector:
+            matchLabels:
+              app: "{{ $name }}"
+        {{- end }}
+      {{- end }}
+      {{- if $.Values.serviceAccount.create }}
+      serviceAccountName: {{ $.Values.serviceAccount.name }}
+      {{- end }}
+      # priorityClassName: "{{ $.Values.priorityClassName }}"
+      {{- if $.Values.affinity }}
+      affinity:
+        podAffinity: {{- $.Values.podAffinity | nindent 10 }}
+        podAntiAffinity: {{- $.Values.podAntiAffinity | nindent 10 }}
+        nodeAffinity: {{- $.Values.nodeAffinity | nindent 10 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      imagePullSecrets:
+      {{- if $.Values.imagePullSecrets }}
+      {{ toYaml $.Values.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      {{- if $params.database.migration }}
+      initContainers:
+      - name: migrate-database
+        image: {{ $params.database.fullImage }}
+        command:
+          - "/bin/sh"
+          - "-c"
+          - |
+            migrate -verbose -source {{ $params.database.gitRepo }}/apps/qualgo-migrations -database $DATABASE_URL up
+        env:
+        - name: DATABASE_URL
+          value: "mysql://{{ $.Values.global.database.user }}:{{ $.Values.global.database.pass }}@tcp({{ $.Values.global.database.host }}:{{ $.Values.global.database.port }})/{{ $.Values.global.database.name }}?query"
+      {{- end }}
+      containers:
+      - name: {{ $name }}
+        {{- if $params.fullRepository }}
+        image: "{{ $params.fullRepository }}:{{ $params.tag }}"
+        {{- else }}
+        image: "{{ $.Values.image.registry }}/{{ $name }}:{{ $params.tag }}"
+        {{- end }}
+        imagePullPolicy: {{ $.Values.image.pullPolicy }}
+        {{- if $params.securityContext }}
+        securityContext:
+          {{- toYaml $params.securityContext | nindent 10 }}
+        {{- end }}
+        ports:
+        {{ if $params.service -}}
+        - name: http
+          containerPort: {{ $params.service.port }}
+          protocol: TCP
+        {{- end }}
+        env:
+        {{- range $key, $value := $params.extraEnv }}
+          - name: {{ $key }}
+            value: "{{ tpl $value $ | trim }}"
+        {{- end }}
+        readinessProbe:
+          {{- toYaml (default $.Values.readinessProbe $params.readinessProbe) | nindent 10 }}
+        livenessProbe:
+          {{- toYaml (default $.Values.livenessProbe $params.livenessProbe) | nindent 10 }}
+
+        resources:
+          {{- toYaml (default $.Values.resources $params.resources) | nindent 10 }}
+{{- end }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}
+spec:
+  maxUnavailable: {{ $params.maxUnavailablePDB }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: "{{ $name }}"
+---
+{{- end }}

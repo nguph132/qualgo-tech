@@ -1,0 +1,19 @@
+{{ range $name, $params := .Values.apps -}}
+{{- if $params.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+spec:
+  selector:
+    app: {{ $name }}
+  ports:
+    - protocol: TCP
+      port: {{ $params.service.port }}
+      targetPort: {{ $params.service.port }}
+  type: {{ $params.service.type }}
+{{- end }}
+---
+{{- end }}

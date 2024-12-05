@@ -1,0 +1,20 @@
+{{ range $name, $params := .Values.apps -}}
+{{- if $params.hpa -}}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: "{{ $name }}"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $name }}
+  minReplicas: {{ $params.hpa.minReplicas }}
+  maxReplicas: {{ $params.hpa.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      {{- toYaml $params.hpa.resources | nindent 6 }}
+{{- end }}
+---
+{{- end }}

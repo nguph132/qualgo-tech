@@ -1,0 +1,245 @@
+namespace: qualgo
+
+replicaCount: 2
+
+global:
+  database:
+    host: &dbhost "terraform-20241205083258060200000001.c9c22qmq4930.ap-southeast-1.rds.amazonaws.com"
+    name: &dbname "qualgo"
+    user: &dbuser "qualgo_admin"
+    pass: &dbpass "fgJY2FShxElpx2Ce"
+    port: &dbport "3306"
+    fullImage: &fullImage "migrate/migrate:4"
+    gitRepo: &gitRepo "github://nguph132@nguph132/qualgo-tech"
+
+image:
+  registry: 888577040857.dkr.ecr.ap-southeast-1.amazonaws.com
+  pullPolicy: Always
+
+imagePullSecrets:
+  - name: ecr-secret
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 5
+  timeoutSeconds: 5
+  periodSeconds: 15
+  failureThreshold: 3
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 3000
+  initialDelaySeconds: 5
+  timeoutSeconds: 5
+  periodSeconds: 15
+  failureThreshold: 3
+
+serviceAccount:
+  create: true
+  name: qualgo
+
+resources:
+  requests:
+    memory: "50Mi"
+    cpu: "10m"
+  limits:
+    memory: "500Mi"
+    cpu: "100m"
+
+apps:
+  qualgo-backend:
+    enabled: true
+    tag: latest
+    service:
+      port: 3000
+      type: ClusterIP
+    extraEnv:
+      DB_HOST: *dbhost
+      DB_USER: *dbuser
+      DB_PASSWORD: *dbpass
+      DB_PORT: "3306"
+      DB_NAME: *dbname
+    ingress:
+      enabled: true
+      host: "qualgo-api.internal"
+      path: "/"
+      annotations: []
+    hpa:
+      minReplicas: 2
+      maxReplicas: 5
+      resources:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 30
+    maxUnavailablePDB: 1
+    podSecurityContext:
+      fsGroup: 10000
+      runAsUser: 10000
+      runAsGroup: 10000
+      runAsNonRoot: true
+    securityContext:
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      privileged: false
+      procMount: Default
+      runAsUser: 10000
+      runAsGroup: 10000
+      seccompProfile:
+        type: RuntimeDefault
+      capabilities:
+        drop:
+        - ALL
+    database:
+      migration: true
+      fullImage: *fullImage
+      gitRepo: *gitRepo
+    sgPolicy:
+      enabled: false
+      # groupIds:
+      # - sg-00c6cf63d81af1264 # node sg
+      # - sg-0716f77f9088323d2 # pod sg
+    topologySpreadConstraints:
+    - topologyKey: kubernetes.io/hostname
+      maxSkew: 1
+      whenUnsatisfiable: DoNotSchedule
+
+  canary-qualgo-backend:
+    enabled: true
+    fullRepository: "888577040857.dkr.ecr.ap-southeast-1.amazonaws.com/qualgo-backend"
+    tag: latest
+    service:
+      port: 3000
+      type: ClusterIP
+    extraEnv:
+      DB_HOST: *dbhost
+      DB_USER: *dbuser
+      DB_PASSWORD: *dbpass
+      DB_PORT: "3306"
+      DB_NAME: *dbname
+    ingress:
+      enabled: true
+      host: "qualgo-api.internal"
+      path: "/"
+      annotations:
+        nginx.ingress.kubernetes.io/canary: "true"
+        nginx.ingress.kubernetes.io/canary-weight: "30"
+    hpa:
+      minReplicas: 2
+      maxReplicas: 3
+      resources:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+    maxUnavailablePDB: 1
+    podSecurityContext:
+      fsGroup: 10000
+      runAsUser: 10000
+      runAsGroup: 10000
+      runAsNonRoot: true
+    securityContext:
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      privileged: false
+      procMount: Default
+      runAsUser: 10000
+      runAsGroup: 10000
+      seccompProfile:
+        type: RuntimeDefault
+      capabilities:
+        drop:
+        - ALL
+    database:
+      migration: true
+      fullImage: *fullImage
+      gitRepo: *gitRepo
+    sgPolicy:
+      enabled: false
+      # groupIds:
+      # - sg-00c6cf63d81af1264 # node
+      # - sg-0716f77f9088323d2 # pod
+    topologySpreadConstraints:
+    - topologyKey: kubernetes.io/hostname
+      maxSkew: 1
+      whenUnsatisfiable: DoNotSchedule
+
+  qualgo-frontend:
+    enabled: true
+    tag: latest
+    service:
+      port: 3000
+      type: ClusterIP
+    extraEnv:
+      API_URL: "https://qbar70nrme.execute-api.ap-southeast-1.amazonaws.com/qualgo"
+    ingress:
+      enabled: true
+      host: "qualgo.internal"
+      path: "/"
+      annotations: []
+    hpa:
+      minReplicas: 2
+      maxReplicas: 5
+      resources:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 30
+    maxUnavailablePDB: 1
+    podSecurityContext:
+      fsGroup: 10000
+      runAsUser: 10000
+      runAsGroup: 10000
+      runAsNonRoot: true
+    securityContext:
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      runAsNonRoot: true
+      privileged: false
+      procMount: Default
+      runAsUser: 10000
+      runAsGroup: 10000
+      seccompProfile:
+        type: RuntimeDefault
+      capabilities:
+        drop:
+        - ALL
+    database:
+      migration: false
+    sgPolicy:
+      enabled: false
+
+networkPols:
+- name: qualgo-frontend
+  podSelector:
+    matchLabels:
+      app: qualgo-frontend
+  ingress:
+    netpolIngress: true
+  egress:
+    netpolAll: true
+- name: qualgo-backend
+  podSelector:
+    matchLabels:
+      app: qualgo-backend
+  ingress:
+    netpolIngress: true
+  egress:
+    netpolDns: true
+    netpolDatabase: true
+    netpolGithubAPI: true
+- name: canary-qualgo-backend
+  podSelector:
+    matchLabels:
+      app: canary-qualgo-backend
+  ingress:
+    netpolIngress: true
+  egress:
+    netpolDns: true
+    netpolDatabase: true
+    netpolGithubAPI: true

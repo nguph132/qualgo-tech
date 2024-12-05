@@ -1,0 +1,132 @@
+{{- range .Values.networkPols }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .name }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- toYaml .podSelector.matchLabels | nindent 6 }}
+  policyTypes:
+  {{- with .policyTypes }}
+  {{- range . }}
+  - {{ . }}
+  {{- end }}
+  {{- else }}
+  - Ingress
+  - Egress
+  {{- end }}
+  {{- if .ingress }}
+  ingress:
+    {{- if .ingress.netpolIngress }}
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/name: ingress-nginx
+            app.kubernetes.io/component: controller
+            app.kubernetes.io/instance: ingress-nginx
+        namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ingress-nginx
+      ports:
+      - protocol: TCP
+        port: 3000
+    {{- end }}
+  {{- end }}
+
+  {{- if .egress }}
+  egress:
+    {{- if .egress.netpolAll }}
+    - {}
+    {{- end }}
+    {{- if .egress.netpolDns }}
+    - ports:
+      - protocol: UDP
+        port: 53
+      - protocol: TCP
+        port: 53
+    {{- end }}
+    {{- if .egress.netpolAPIGateway }}
+    - to:
+      # api gateway ranges
+      # curl -s https://ip-ranges.amazonaws.com/ip-ranges.json | jq '.prefixes[] | select(.service == "API_GATEWAY") | select(.region == "ap-southeast-1")'
+      - ipBlock:
+          cidr: 13.214.224.0/23
+      - ipBlock:
+          cidr: 13.214.228.0/22
+      - ipBlock:
+          cidr: 13.215.92.0/24
+      - ipBlock:
+          cidr: 13.215.93.0/25
+      - ipBlock:
+          cidr: 13.215.93.128/26
+      - ipBlock:
+          cidr: 18.138.134.128/25
+      - ipBlock:
+          cidr: 18.138.244.0/23
+      - ipBlock:
+          cidr: 18.141.148.128/25
+      - ipBlock:
+          cidr: 18.141.150.0/23
+      ports:
+      - protocol: TCP
+        port: 443
+    {{- end }}
+    {{- if .egress.netpolDatabase }}
+    - to:
+      - ipBlock:
+          cidr: 10.0.3.214/32
+      ports:
+      - protocol: TCP
+        port: 3306
+    {{- end }}
+    # check https://api.github.com/meta
+    {{- if .egress.netpolGithubAPI }}
+    - to:
+      - ipBlock:
+          cidr: 192.30.252.0/22
+      - ipBlock:
+          cidr: 185.199.108.0/22
+      - ipBlock:
+          cidr: 140.82.112.0/20
+      - ipBlock:
+          cidr: 143.55.64.0/20
+      - ipBlock:
+          cidr: 20.201.28.148/32
+      - ipBlock:
+          cidr: 20.205.243.168/32
+      - ipBlock:
+          cidr: 20.87.245.6/32
+      - ipBlock:
+          cidr: 20.248.137.49/32
+      - ipBlock:
+          cidr: 4.237.22.34/32
+      - ipBlock:
+          cidr: 20.207.73.85/32
+      - ipBlock:
+          cidr: 20.27.177.116/32
+      - ipBlock:
+          cidr: 20.200.245.245/32
+      - ipBlock:
+          cidr: 20.175.192.149/32
+      - ipBlock:
+          cidr: 20.233.83.146/32
+      - ipBlock:
+          cidr: 20.29.134.17/32
+      - ipBlock:
+          cidr: 20.199.39.228/32
+      - ipBlock:
+          cidr: 4.208.26.200/32
+      - ipBlock:
+          cidr: 20.26.156.210/32
+      - ipBlock:
+          cidr: 20.217.135.0/32
+      - ipBlock:
+          cidr: 4.225.11.201/32
+      ports:
+      - protocol: TCP
+        port: 443
+    {{- end }}
+  {{- end }}
+---
+{{- end }}

@@ -1,0 +1,18 @@
+# {{ range $name, $params := .Values.apps -}}
+# {{- if $params.sgPolicy.enabled -}}
+# apiVersion: vpcresources.k8s.aws/v1beta1
+# kind: SecurityGroupPolicy
+# metadata:
+#   name: {{ $name}}
+# spec:
+#   podSelector:
+#     matchLabels:
+#       app: {{ $name}}
+#   securityGroups:
+#     groupIds:
+#       {{- with $params.sgPolicy.groupIds }}
+#       {{- toYaml . | nindent 6 }}
+#       {{- end }}
+# {{- end -}}
+# ---
+# {{- end -}}
