@@ -11,7 +11,7 @@ global:
     port: &dbport "3306"
     fullImage: &fullImage "migrate/migrate:4"
     # test token to access public repo
-    gitRepo: &gitRepo "github://nguph132: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@nguph132/qualgo-tech"
+    gitRepo: &gitRepo "github://nguph132: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@nguph132/qualgo-tech"
 
 image:
   registry: 888577040857.dkr.ecr.ap-southeast-1.amazonaws.com

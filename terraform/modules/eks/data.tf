@@ -20,9 +20,9 @@ locals {
       version = "v1.19.0-eksbuild.1"
       configuration_values = ({
         enableNetworkPolicy = "true",
-        env = {
-          ENABLE_POD_ENI = "true"
-        }
+        # env = {
+        #   ENABLE_POD_ENI = "true"
+        # }
         init = {
           env = {
             DISABLE_TCP_EARLY_DEMUX = "true"
