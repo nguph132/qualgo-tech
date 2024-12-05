@@ -21,7 +21,7 @@ This repository is organized as follows:
 │   │   └──------------ ingress-nginx
 │   │   └──------------ metrics-server
 │   │   └──------------ trivy-operator
-│   └── ReadMe.md
+│   └   └──------------ ReadMe.md
 ├── docs/
 │   ├── diagram
 ├── terraform/
